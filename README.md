@@ -170,7 +170,12 @@ Routes each regional summary to the correct recipient:
 - Tracks successful emails  
 - Captures errors with region + timestamp  
 
----
+
+
+## Sent logs sample
+
+![Sent_logs](Image/Sent%20Logs.png)
+
 
 ## Tech Stack
 
