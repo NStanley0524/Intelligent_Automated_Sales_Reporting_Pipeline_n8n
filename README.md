@@ -174,7 +174,7 @@ Routes each regional summary to the correct recipient:
 
 ## Sent logs sample
 
-![Sent_logs](Image/Sent%20Logs.png)
+![Sent Logs](Image/Sent_Logs.png)
 
 
 ## Tech Stack
