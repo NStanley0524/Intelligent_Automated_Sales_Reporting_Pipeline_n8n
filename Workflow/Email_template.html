@@ -1,0 +1,19 @@
+<div style="font-family: Arial, Helvetica, sans-serif; color:#111; max-width:600px;">
+  <p>Good morning,</p>
+
+  <p>
+    Below is the sales summary for <strong>{{ $json.region }}</strong> 
+    on <strong>{{ $now.minus({days:1}).format("YYYY-MM-DD") }}</strong>.
+  </p>
+
+  <p><strong>Total Sales:</strong> ₦{{ $json.totalSalesFormatted }}</p>
+
+  <h4>Sales by Product</h4>
+  <div>{{ $json.productList }}</div>
+
+  <p style="margin-top:24px;">
+    Best regards,<br>
+    <strong>Stanley Nwajagu</strong><br>
+    Data Analyst
+  </p>
+</div>
