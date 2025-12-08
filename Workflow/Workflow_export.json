@@ -1,0 +1,1150 @@
+{
+  "name": "Case study Project",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        -304
+      ],
+      "id": "6f587cec-12a8-413c-9797-45cc1c378202",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8c31f97f-c655-4a40-ae39-b97be7f9e5b8",
+              "leftValue": "={{ $json.Sales_Date }}",
+              "rightValue": "={{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}\n",
+              "operator": {
+                "type": "dateTime",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        -480
+      ],
+      "id": "4abb7f66-d45a-441e-9544-5bbfd71ba036",
+      "name": "Filter yesterday's sales"
+    },
+    {
+      "parameters": {
+        "jsCode": "// INPUT: your Google Sheets node already filtered to yesterday, so `rows` are only yesterday's rows\nconst rows = $input.all().map(i => i.json || {});\n\n// === Replace this mapping with your actual manager emails or load from a sheet ===\nconst managerEmailByRegion = {\n  \"Asia\": \"asia.manager@company.com\",\n  \"North America\": \"na.manager@company.com\",\n  \"Europe\": \"europe.manager@company.com\",\n  \"South America\": \"sa.manager@company.com\",\n  \"Africa\": \"africa.manager@company.com\",\n  \"Oceania\": \"oceania.manager@company.com\",\n  // add or remove regions as needed\n};\n\n// Helper: safe number\nfunction toNum(v){\n  const n = Number(v);\n  return Number.isFinite(n) ? n : 0;\n}\n\n// Aggregation containers\nconst regionTotals = {};     // region -> total number\nconst regionByProduct = {};  // region -> { product -> total }\nconst regionRowCount = {};   // region -> rows processed\n\n// Determine amount per row: prefer Amount, otherwise Quantity * Unit_Price\nfor (const r of rows){\n  const product = (r.Product || r.product || 'Unknown').toString();\n  const region = (r.Region || r.region || 'Unknown').toString();\n\n  let amount = 0;\n  if (r.Amount !== undefined && r.Amount !== null && r.Amount !== \"\") {\n    amount = toNum(r.Amount);\n  } else {\n    const qty = toNum(r.Quantity || r.Quantity_s || 0);\n    const price = toNum(r.Unit_Price || r.UnitPrice || r.Unit_Price_NGN || 0);\n    amount = qty * price;\n  }\n  if (!Number.isFinite(amount)) amount = 0;\n\n  regionTotals[region] = (regionTotals[region] || 0) + amount;\n  regionByProduct[region] = regionByProduct[region] || {};\n  regionByProduct[region][product] = (regionByProduct[region][product] || 0) + amount;\n  regionRowCount[region] = (regionRowCount[region] || 0) + 1;\n}\n\n// Helper to format Naira (or change locale/format as desired)\nfunction fmt(n){\n  return Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });\n}\n\n// Build output items: one per region\nconst output = [];\nfor (const region of Object.keys(regionTotals)) {\n  const byProduct = regionByProduct[region] || {};\n  const productListHtml = Object.entries(byProduct)\n    .map(([k,v]) => `${k}: ₦${fmt(v)}`)\n    .join('<br>');\n  const regionListHtml = `${region}: ₦${fmt(regionTotals[region])}`;\n\n  const managerEmail = managerEmailByRegion[region] || ''; // blank if not mapped\n\n  output.push({\n    json: {\n      region,\n      managerEmail,\n      totalSales: regionTotals[region],\n      totalSalesFormatted: fmt(regionTotals[region]),\n      productList: productListHtml,\n      rowsProcessed: regionRowCount[region] || 0,\n      // if you want to include raw product totals too:\n      byProduct\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        -480
+      ],
+      "id": "4e39ff60-29a6-4cc4-b423-37840bab9086",
+      "name": "Calculating metrics"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1748318521,
+          "mode": "list",
+          "cachedResultName": "Managers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=1748318521"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -144,
+        -144
+      ],
+      "id": "6594f7f2-1489-46ab-a9ce-58b9728c2b96",
+      "name": "Get Managers Details",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 922395115,
+          "mode": "list",
+          "cachedResultName": "Sales Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=922395115"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -128,
+        -480
+      ],
+      "id": "1c9f9e4b-ac67-4caf-abc9-3229b5987990",
+      "name": "Get Sales Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "region",
+              "field2": "Region"
+            }
+          ]
+        },
+        "joinMode": "enrichInput1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        -288
+      ],
+      "id": "471b58f3-55bf-4ce4-97c8-5e3a4b4fea25",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.region }}",
+                    "rightValue": "=North America",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "6844c5d9-ab6b-4c26-9de6-fcdaab81c9ee"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "North America"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "93d35a40-469d-46d5-bf3a-051e75273af8",
+                    "leftValue": "={{ $json.region }}",
+                    "rightValue": "=Europe",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Europe"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "42f1bdfb-61aa-4839-9dca-1cda92d4a364",
+                    "leftValue": "={{ $json.region }}",
+                    "rightValue": "=Asia",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Asia"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3e3270b9-33a4-48a2-84f8-b5c643ae4981",
+                    "leftValue": "={{ $json.region }}",
+                    "rightValue": "=South America",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "South America"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1216,
+        -336
+      ],
+      "id": "52df02f2-9c37-4bca-ad0b-da42ad464640",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2cc428d8-a100-47b2-942c-7d40f495697c",
+              "leftValue": "={{ $json.ManagerEmail }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        -288
+      ],
+      "id": "8e2acca8-82a6-455b-ab95-8311bf689947",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 158407855,
+          "mode": "list",
+          "cachedResultName": "No Managers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=158407855"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Failed",
+            "Date": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        -16
+      ],
+      "id": "ea6befbd-f04a-4366-a711-e1c38319ad8f",
+      "name": "Log Failed Mails",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.ManagerEmail }}",
+        "subject": "=Daily Sales Report - {{ $json.Region }} - {{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}",
+        "message": "=<div style=\"font-family: Arial, Helvetica, sans-serif; color:#111; max-width:600px;\">\n  <p style=\"margin:0 0 12px 0;\">Good morning,</p>\n\n  <p style=\"margin:0 0 16px 0; color:#333;\">\n    Below is the sales summary for <strong>{{ $json.region }}</strong> on \n    <strong>{{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}\n</strong>.\n  </p>\n\n  <table cellpadding=\"6\" style=\"width:100%; border-collapse:collapse; margin-bottom:12px;\">\n    <tr>\n      <td style=\"background:#f2f6ff; border-radius:6px;\"><strong>Total sales</strong></td>\n      <td style=\"text-align:right; font-weight:600;\">₦{{ $json.totalSalesFormatted }}</td>\n    </tr>\n  </table>\n\n  <h4 style=\"margin:8px 0 8px 0; font-size:15px; color:#111;\">Sales by product</h4>\n  <div style=\"color:#333; line-height:1.5; margin-bottom:14px;\">\n    {{ $json.productList }}\n  </div>\n\n  <p style=\"margin:18px 0 0 0; font-size:14px; color:#333;\">\n    Best regards,<br>\n    <strong>Stanley Nwajagu</strong><br>\n    Data Analyst • <a href=\"mailto:stanley@10alytics.org.com\" style=\"color:#0b3d91; text-decoration:none;\">stanley@10alytics.org.com</a>\n  </p>\n</div>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        -624
+      ],
+      "id": "1cc4b302-e6d2-4773-9d14-b3949a8d22b0",
+      "name": "Mail to North America",
+      "webhookId": "0dd5b4ec-2f75-47a2-9c19-161886dceb48",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0WegTdgifQ8OZSYI",
+          "name": "Gmail account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.ManagerEmail }}",
+        "subject": "=Daily Sales Report - {{ $json.Region }} - {{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}",
+        "message": "=<div style=\"font-family: Arial, Helvetica, sans-serif; color:#111; max-width:600px;\">\n  <p style=\"margin:0 0 12px 0;\">Good morning,</p>\n\n  <p style=\"margin:0 0 16px 0; color:#333;\">\n    Below is the sales summary for <strong>{{ $json.region }}</strong> on \n    <strong>{{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}\n</strong>.\n  </p>\n\n  <table cellpadding=\"6\" style=\"width:100%; border-collapse:collapse; margin-bottom:12px;\">\n    <tr>\n      <td style=\"background:#f2f6ff; border-radius:6px;\"><strong>Total sales</strong></td>\n      <td style=\"text-align:right; font-weight:600;\">₦{{ $json.totalSalesFormatted }}</td>\n    </tr>\n  </table>\n\n  <h4 style=\"margin:8px 0 8px 0; font-size:15px; color:#111;\">Sales by product</h4>\n  <div style=\"color:#333; line-height:1.5; margin-bottom:14px;\">\n    {{ $json.productList }}\n  </div>\n\n  <p style=\"margin:18px 0 0 0; font-size:14px; color:#333;\">\n    Best regards,<br>\n    <strong>Stanley Nwajagu</strong><br>\n    Data Analyst • <a href=\"mailto:stanley@10alytics.org.com\" style=\"color:#0b3d91; text-decoration:none;\">stanley@10alytics.org.com</a>\n  </p>\n</div>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        -416
+      ],
+      "id": "67d52cdc-79ed-47d0-939b-8c7eb624d072",
+      "name": "Mail to Europe",
+      "webhookId": "0dd5b4ec-2f75-47a2-9c19-161886dceb48",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0WegTdgifQ8OZSYI",
+          "name": "Gmail account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.ManagerEmail }}",
+        "subject": "=Daily Sales Report - {{ $json.Region }} - {{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}",
+        "message": "=<div style=\"font-family: Arial, Helvetica, sans-serif; color:#111; max-width:600px;\">\n  <p style=\"margin:0 0 12px 0;\">Good morning,</p>\n\n  <p style=\"margin:0 0 16px 0; color:#333;\">\n    Below is the sales summary for <strong>{{ $json.region }}</strong> on \n    <strong>{{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}\n</strong>.\n  </p>\n\n  <table cellpadding=\"6\" style=\"width:100%; border-collapse:collapse; margin-bottom:12px;\">\n    <tr>\n      <td style=\"background:#f2f6ff; border-radius:6px;\"><strong>Total sales</strong></td>\n      <td style=\"text-align:right; font-weight:600;\">₦{{ $json.totalSalesFormatted }}</td>\n    </tr>\n  </table>\n\n  <h4 style=\"margin:8px 0 8px 0; font-size:15px; color:#111;\">Sales by product</h4>\n  <div style=\"color:#333; line-height:1.5; margin-bottom:14px;\">\n    {{ $json.productList }}\n  </div>\n\n  <p style=\"margin:18px 0 0 0; font-size:14px; color:#333;\">\n    Best regards,<br>\n    <strong>Stanley Nwajagu</strong><br>\n    Data Analyst • <a href=\"mailto:stanley@10alytics.org.com\" style=\"color:#0b3d91; text-decoration:none;\">stanley@10alytics.org.com</a>\n  </p>\n</div>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        -224
+      ],
+      "id": "a7315771-bc67-46bc-948e-9b9bc2830d2e",
+      "name": "Mail to Asia",
+      "webhookId": "0dd5b4ec-2f75-47a2-9c19-161886dceb48",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0WegTdgifQ8OZSYI",
+          "name": "Gmail account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.ManagerEmail }}",
+        "subject": "=Daily Sales Report - {{ $json.Region }} - {{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}",
+        "message": "=<div style=\"font-family: Arial, Helvetica, sans-serif; color:#111; max-width:600px;\">\n  <p style=\"margin:0 0 12px 0;\">Good morning,</p>\n\n  <p style=\"margin:0 0 16px 0; color:#333;\">\n    Below is the sales summary for <strong>{{ $json.region }}</strong> on \n    <strong>{{ (new Date(Date.now() - 86400000)).toISOString().slice(0,10) }}\n</strong>.\n  </p>\n\n  <table cellpadding=\"6\" style=\"width:100%; border-collapse:collapse; margin-bottom:12px;\">\n    <tr>\n      <td style=\"background:#f2f6ff; border-radius:6px;\"><strong>Total sales</strong></td>\n      <td style=\"text-align:right; font-weight:600;\">₦{{ $json.totalSalesFormatted }}</td>\n    </tr>\n  </table>\n\n  <h4 style=\"margin:8px 0 8px 0; font-size:15px; color:#111;\">Sales by product</h4>\n  <div style=\"color:#333; line-height:1.5; margin-bottom:14px;\">\n    {{ $json.productList }}\n  </div>\n\n  <p style=\"margin:18px 0 0 0; font-size:14px; color:#333;\">\n    Best regards,<br>\n    <strong>Stanley Nwajagu</strong><br>\n    Data Analyst • <a href=\"mailto:stanley@10alytics.org.com\" style=\"color:#0b3d91; text-decoration:none;\">stanley@10alytics.org.com</a>\n  </p>\n</div>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        -16
+      ],
+      "id": "15f62894-aed9-416b-967a-7d4087c1006a",
+      "name": "Mail to South America",
+      "webhookId": "0dd5b4ec-2f75-47a2-9c19-161886dceb48",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0WegTdgifQ8OZSYI",
+          "name": "Gmail account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 384864041,
+          "mode": "list",
+          "cachedResultName": "Sent Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=384864041"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Run_date": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "Region": "={{ $('Switch').item.json.region }}",
+            "Managers_email": "={{ $('Switch').item.json.ManagerEmail }}",
+            "Rows_processed": "={{ $('Switch').item.json.rowsProcessed }}",
+            "Total_sales": "={{ $('Switch').item.json.totalSales }}",
+            "Status": "Sent"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run_date",
+              "displayName": "Run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Region",
+              "displayName": "Region",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Managers_email",
+              "displayName": "Managers_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rows_processed",
+              "displayName": "Rows_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total_sales",
+              "displayName": "Total_sales",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        -416
+      ],
+      "id": "2b4b7f00-3b9b-4356-80a1-ad24b0633e6d",
+      "name": "Log Success_Europe",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 384864041,
+          "mode": "list",
+          "cachedResultName": "Sent Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=384864041"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Run_date": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "Region": "={{ $('Switch').item.json.region }}",
+            "Managers_email": "={{ $('Switch').item.json.ManagerEmail }}",
+            "Rows_processed": "={{ $('Switch').item.json.rowsProcessed }}",
+            "Total_sales": "={{ $('Switch').item.json.totalSales }}",
+            "Status": "Sent"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run_date",
+              "displayName": "Run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Region",
+              "displayName": "Region",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Managers_email",
+              "displayName": "Managers_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rows_processed",
+              "displayName": "Rows_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total_sales",
+              "displayName": "Total_sales",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        -224
+      ],
+      "id": "c624c83f-6c6f-403d-a33a-fce9d8917710",
+      "name": "Log Success_Asia",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 384864041,
+          "mode": "list",
+          "cachedResultName": "Sent Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=384864041"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Run_date": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "Region": "={{ $('Switch').item.json.region }}",
+            "Managers_email": "={{ $('Switch').item.json.ManagerEmail }}",
+            "Rows_processed": "={{ $('Switch').item.json.rowsProcessed }}",
+            "Total_sales": "={{ $('Switch').item.json.totalSales }}",
+            "Status": "Sent"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run_date",
+              "displayName": "Run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Region",
+              "displayName": "Region",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Managers_email",
+              "displayName": "Managers_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rows_processed",
+              "displayName": "Rows_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total_sales",
+              "displayName": "Total_sales",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        -16
+      ],
+      "id": "7da5737d-b9dd-434c-9562-43218655e889",
+      "name": "Log Success_South America",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M",
+          "mode": "list",
+          "cachedResultName": "Daily Sales Sheet 2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 384864041,
+          "mode": "list",
+          "cachedResultName": "Sent Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1VkEupbbDXyj0VkrZMPsd_8P2001iE-gXmc57xnh970M/edit#gid=384864041"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Run_date": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "Region": "={{ $('Switch').item.json.region }}",
+            "Managers_email": "={{ $('Switch').item.json.ManagerEmail }}",
+            "Rows_processed": "={{ $('Switch').item.json.rowsProcessed }}",
+            "Total_sales": "={{ $('Switch').item.json.totalSales }}",
+            "Status": "Sent"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run_date",
+              "displayName": "Run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Region",
+              "displayName": "Region",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Managers_email",
+              "displayName": "Managers_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rows_processed",
+              "displayName": "Rows_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total_sales",
+              "displayName": "Total_sales",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        -624
+      ],
+      "id": "f7a61699-251b-45a1-8580-581a68d28282",
+      "name": "Log Success_North America",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q9Vw9xc3A0B5Wn4w",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d2535d0b-26c4-437c-a821-97963b287e55",
+              "name": "Sales_Date",
+              "value": "={{ $json.Sales_Date.split(\" \")[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        16,
+        -480
+      ],
+      "id": "5fd0ea11-2405-49d4-8713-fe58edbc65bd",
+      "name": "Format Date"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f5c51d33-0817-4781-95c2-9d069afad14a",
+              "name": "ManagerEmail",
+              "value": "={{ $json.ManagerEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "1b5d2519-7c8b-49cf-ac89-b80dd13d157f",
+              "name": "Manager",
+              "value": "={{ $json.Manager }}",
+              "type": "string"
+            },
+            {
+              "id": "fe295212-afa8-4261-9f1f-9cd3da49e0ac",
+              "name": "Region",
+              "value": "={{ $json.region }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        -144
+      ],
+      "id": "88488f8a-71b0-433b-907b-18a9ddd48efa",
+      "name": "Format Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Sales Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Managers Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter yesterday's sales": {
+      "main": [
+        [
+          {
+            "node": "Calculating metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculating metrics": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Managers Details": {
+      "main": [
+        [
+          {
+            "node": "Format Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sales Data": {
+      "main": [
+        [
+          {
+            "node": "Format Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Mail to North America",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mail to Europe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mail to Asia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mail to South America",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failed Mails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail to North America": {
+      "main": [
+        [
+          {
+            "node": "Log Success_North America",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail to Europe": {
+      "main": [
+        [
+          {
+            "node": "Log Success_Europe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail to South America": {
+      "main": [
+        [
+          {
+            "node": "Log Success_South America",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail to Asia": {
+      "main": [
+        [
+          {
+            "node": "Log Success_Asia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Date": {
+      "main": [
+        [
+          {
+            "node": "Filter yesterday's sales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "17fc7988-d8e5-4239-8119-bec5471521af",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "350bb04786aa3adf9f9ab3e2b44c25d1c48a3a82018f4857c0d62f7a3c9ee1ca"
+  },
+  "id": "3zFWt3MoWJqL8iLq",
+  "tags": []
+}
