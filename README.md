@@ -157,7 +157,15 @@ In short, it turns a **manual daily task** into an **intelligent daily automatio
 Each manager receives a unique summary containing:
 - Their region’s total sales  
 - Product-by-product breakdown  
-- Date of report   
+- Date of report
+
+
+
+### Sent email sample
+
+![sent email](Image/Mail%20Sent%20Example.png)
+
+
 
 ### Conditional Branching (Switch Node)  
 Routes each regional summary to the correct recipient:
@@ -172,7 +180,7 @@ Routes each regional summary to the correct recipient:
 
 
 
-## Sent logs sample
+### Sent logs sample
 
 ![Sent Logs](Image/Sent_Logs.png)
 
