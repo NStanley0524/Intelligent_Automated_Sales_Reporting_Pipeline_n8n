@@ -25,8 +25,7 @@ The pipeline is fully autonomous and requires **zero manual intervention** once 
 
 ```
 Intelligent_Automated_Sales_Reporting_Pipeline/
-├── README.md                         # Project documentation
-├── Docs/                             # Documentation files
+├── README.md                         # Project documentation                     
 ├── Image/                            # Workflow diagrams and screenshots
 │   └── n8n.png                      # n8n workflow diagram
 ├── Sample_data/                      # Sample datasets for testing
